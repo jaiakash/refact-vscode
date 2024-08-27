@@ -133,7 +133,11 @@ export class PanelWebview implements vscode.WebviewViewProvider {
         }));
 
         this._disposables.push(vscode.workspace.onDidChangeConfiguration(event => {
-            if(event.affectsConfiguration("refactai.vecdb") || event.affectsConfiguration("refactai.ast")) {
+            if(
+                event.affectsConfiguration("refactai.vecdb") ||
+                event.affectsConfiguration("refactai.ast") ||
+                event.affectsConfiguration("refactai.submitChatWithShiftEnter")
+            ) {
                 this.handleSettingsChange();
             }
         }));
@@ -250,11 +254,13 @@ export class PanelWebview implements vscode.WebviewViewProvider {
         const apiKey = vscode.workspace.getConfiguration()?.get<string>("refactai.apiKey") ?? "";
         const addressURL = vscode.workspace.getConfiguration()?.get<string>("refactai.addressURL") ?? "";
         const port = global.rust_binary_blob?.get_port() ?? 8001;
+        const submitChatWithShiftEnter = vscode.workspace.getConfiguration()?.get<boolean>("refactai.submitChatWithShiftEnter")?? false;
 
         const message = updateConfig({
             apiKey,
             addressURL,
             lspPort: port,
+            shiftEnterToSubmit: submitChatWithShiftEnter,
             features: {vecdb, ast}
         });
 
@@ -760,10 +766,12 @@ export class PanelWebview implements vscode.WebviewViewProvider {
         const port = global.rust_binary_blob?.get_port() ?? 8001;
         const completeManual = await getKeyBindingForChat("refactaicmd.completionManual");
         const maybeHistory = this.context.globalState.get<OldChat[]>("refact_chat_history") ?? [];
+        const shiftEnterToSubmit = vscode.workspace.getConfiguration()?.get<boolean>("refactai.shiftEnterToSubmit")?? false;
 
         const config: InitialState["config"] = {
             host: "vscode",
             tabbed,
+            shiftEnterToSubmit,
             themeProps: {
                 accentColor: "gray",
                 scaling,
@@ -808,7 +816,6 @@ export class PanelWebview implements vscode.WebviewViewProvider {
                 streaming: false,
                 error: null,
                 prevent_send: true,
-                previous_message_length: thread.messages.length,
                 waiting_for_response: false,
                 tool_use: "agent",
                 cache: {},
